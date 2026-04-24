@@ -473,9 +473,34 @@ function setupEvents() {
   document.getElementById('explore-btn')?.addEventListener('click', () => setMode('compare'));
   document.getElementById('qr-btn')?.addEventListener('click',      showQRModal);
   document.getElementById('show-qr-btn')?.addEventListener('click', showQRModal);
-  document.getElementById('ar-close-btn')?.addEventListener('click', () =>
-    document.getElementById('ar-modal')?.classList.add('hidden')
-  );
+  document.getElementById('export-glb-btn')?.addEventListener('click', exportStaticGLB);
+}
+
+/**
+ * Exporta el modelo STL actual a un archivo GLB para que el usuario lo suba al repo
+ */
+function exportStaticGLB() {
+  if (!stlGeometry) {
+    alert('El modelo STL aún no ha cargado. Espera un segundo.');
+    return;
+  }
+
+  const material = new THREE.MeshStandardMaterial({ color: 0xC87533, roughness: 0.3, metalness: 0.8 });
+  const mesh = new THREE.Mesh(stlGeometry, material);
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  
+  const exporter = new GLTFExporter();
+  exporter.parse(scene, (buffer) => {
+    const blob = new Blob([buffer], { type: 'model/gltf-binary' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'dummy.glb';
+    link.click();
+    URL.revokeObjectURL(url);
+    alert('¡Listo! Ahora sube el archivo "dummy.glb" a la carpeta raíz de tu proyecto en GitHub.');
+  }, { binary: true });
 }
 
 // ─── Utils ────────────────────────────────────────────────────────────────────

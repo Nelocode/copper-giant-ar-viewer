@@ -233,6 +233,14 @@ function setARLoading(on) {
   if (el) el.classList.toggle('hidden', !on);
 }
 
+/**
+ * Muestra/oculta el spinner del comparador
+ */
+function setCmpLoading(on) {
+  const el = document.getElementById('cmp-loading');
+  if (el) el.style.display = on ? 'flex' : 'none';
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 //  GLTF EXPORTER — escena combinada mina + estructura para AR
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -317,18 +325,22 @@ async function loadCombinedInViewer(structId, viewerId) {
   const mv = document.getElementById(viewerId);
   if (!mv) return;
 
-  mv.setAttribute('loading-state', 'loading');
+  setCmpLoading(true);
   try {
+    console.log('[Comparator] Generando escena para:', structId);
     const url = await exportCombinedGLB(structId);
     if (url) {
-      // Limpiar blob anterior si lo hay
       const prev = mv.dataset.blobUrl;
       if (prev) URL.revokeObjectURL(prev);
       mv.dataset.blobUrl = url;
       mv.src = url;
+      console.log('[Comparator] Escena cargada');
     }
   } catch(e) {
     console.error('[viewer] load failed:', e);
+  } finally {
+    // Retraso mínimo para que la transición no sea brusca
+    setTimeout(() => setCmpLoading(false), 500);
   }
 }
 
@@ -395,18 +407,27 @@ async function launchAR() {
   setMode('ar');
 
   try {
+    // Si es un Blob (modelo dummy generado), avisamos que puede fallar en algunos visores nativos
+    if (mv.src.startsWith('blob:') && isAndroid) {
+      console.warn('[AR] Los modelos generados por Blob pueden tener problemas en Scene Viewer');
+    }
+
     let xrOK = false;
     if (navigator.xr) xrOK = await navigator.xr.isSessionSupported('immersive-ar').catch(() => false);
 
     if ((isIOS || isAndroid || xrOK) && mv) {
-      try { mv.activateAR(); } catch(_) {
-        document.getElementById('mv-ar-btn')?.click();
+      // Priorizar el botón interno de model-viewer si existe
+      try { 
+        mv.activateAR(); 
+      } catch(_) {
+        const btn = document.getElementById('mv-ar-btn');
+        if (btn) btn.click();
       }
     } else {
       showQRModal();
     }
   } catch(e) {
-    console.warn('[AR]', e);
+    console.warn('[AR] Fallo al iniciar:', e);
     showQRModal();
   }
 }

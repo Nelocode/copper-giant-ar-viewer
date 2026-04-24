@@ -502,6 +502,10 @@ function exportStaticGLB() {
 
   const material = new THREE.MeshStandardMaterial({ color: 0xC87533, roughness: 0.3, metalness: 0.8 });
   const mesh = new THREE.Mesh(stlGeometry, material);
+  
+  // Rotación crítica: para que el GLB salga "de pie" en los visores nativos (AR)
+  mesh.rotateX(-Math.PI / 2);
+  
   const scene = new THREE.Scene();
   scene.add(mesh);
   

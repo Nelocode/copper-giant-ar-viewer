@@ -18,7 +18,7 @@ let combinedBlobUrl = null;      // URL del blob GLB combinado para AR
 let stlBlobUrl      = null;      // URL del blob GLB generado a partir del STL
 let stlGeometry     = null;      // Geometría cargada del STL para reuso
 
-const DEFAULT_MODEL = 'https://modelviewer.dev/shared-assets/models/Astronaut.glb';
+const DEFAULT_MODEL = './dummy.glb';
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 function init() {
@@ -76,10 +76,10 @@ async function loadSTLModel() {
         stlBlobUrl = URL.createObjectURL(blob);
         
         if (mv) {
-          mv.src = stlBlobUrl;
+          mv.src = DEFAULT_MODEL;
           mv.removeAttribute('loading-state');
           if (!arStructId) {
-            setText('ar-model-label', 'Modelo: dummy.stl (local)');
+            setText('ar-model-label', 'Modelo: dummy.glb (estático)');
           }
         }
         console.log('[STL] Conversión a GLB completada. Iniciando comparador...');
@@ -207,10 +207,10 @@ async function selectARStruct(id) {
   if (!mv) return;
 
   if (!id) {
-    // Sin comparación: volver al modelo STL local
+    // Sin comparación: volver al modelo GLB estático (mejor para AR nativo)
     if (combinedBlobUrl) { URL.revokeObjectURL(combinedBlobUrl); combinedBlobUrl = null; }
-    mv.src = stlBlobUrl || DEFAULT_MODEL;
-    setText('ar-model-label', stlBlobUrl ? 'Modelo: dummy.stl (local)' : 'Modelo: placeholder');
+    mv.src = DEFAULT_MODEL;
+    setText('ar-model-label', 'Modelo: dummy.glb (estático)');
     return;
   }
 
@@ -411,10 +411,8 @@ async function launchAR() {
   setMode('ar');
 
   try {
-    // Si es un Blob (modelo dummy generado), avisamos que puede fallar en algunos visores nativos
-    if (mv.src.startsWith('blob:') && isAndroid) {
-      console.warn('[AR] Los modelos generados por Blob pueden tener problemas en Scene Viewer');
-    }
+    // Si es el modelo base estático, Scene Viewer funcionará sin ARCore
+    console.log('[AR] Iniciando con:', mv.src);
 
     let xrOK = false;
     if (navigator.xr) xrOK = await navigator.xr.isSessionSupported('immersive-ar').catch(() => false);

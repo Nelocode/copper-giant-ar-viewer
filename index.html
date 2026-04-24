@@ -73,7 +73,7 @@
       <div class="view-layer" id="view-3d">
         <model-viewer
           id="primary-viewer"
-          src=""
+          src="dummy.glb"
           alt="Modelo 3D — Copper Giant AR Viewer"
           ar
           ar-modes="scene-viewer quick-look webxr"
@@ -82,10 +82,12 @@
           auto-rotate-delay="1000"
           rotation-per-second="18deg"
           environment-image="neutral"
-          shadow-intensity="1.4"
-          shadow-softness="1"
-          exposure="0.9"
-          interaction-prompt="none"
+          shadow-intensity="1.5"
+          exposure="1.2"
+          camera-orbit="0deg 75deg 105%"
+          bounds="tight"
+          interaction-prompt="auto"
+          loading="eager"
           style="width:100%;height:100%;background:#000;">
           <!-- Botón AR nativo (solo aparece en dispositivos compatibles) -->
           <button slot="ar-button" id="mv-ar-btn" class="mv-ar-btn">
@@ -126,10 +128,10 @@
           auto-rotate-delay="2000"
           rotation-per-second="10deg"
           environment-image="neutral"
-          shadow-intensity="1.2"
-          shadow-softness="0.9"
-          exposure="1.0"
+          shadow-intensity="1.4"
+          exposure="1.2"
           camera-orbit="30deg 70deg 6m"
+          bounds="tight"
           interaction-prompt="none"
           style="width:100%;height:100%;background:#000;--progress-bar-color:transparent;">
         </model-viewer>
@@ -321,6 +323,6 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
-  <script type="module" src="js/app.js?v=6"></script>
+  <script type="module" src="js/app.js?v=7"></script>
 </body>
 </html>

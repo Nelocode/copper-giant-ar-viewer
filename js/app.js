@@ -49,7 +49,7 @@ function safeRun(label, fn) {
 async function loadSTLModel() {
   const loader = new STLLoader();
   // Intentar con el nombre original y un fallback por si acaso
-  const stlPath = './MuñecoESTATUAFULL.stl';
+  const stlPath = './dummy.stl';
   
   console.log('[STL] Iniciando carga de:', stlPath);
   
@@ -83,7 +83,7 @@ async function loadSTLModel() {
           mv.src = stlBlobUrl;
           mv.removeAttribute('loading-state');
           if (!arStructId) {
-            setText('ar-model-label', 'Modelo: Muñeco ESTATUA (Dummy local)');
+            setText('ar-model-label', 'Modelo: dummy.stl (local)');
           }
         }
         console.log('[STL] Conversión a GLB completada');
@@ -206,7 +206,7 @@ async function selectARStruct(id) {
     // Sin comparación: volver al modelo STL local
     if (combinedBlobUrl) { URL.revokeObjectURL(combinedBlobUrl); combinedBlobUrl = null; }
     mv.src = stlBlobUrl || DEFAULT_MODEL;
-    setText('ar-model-label', stlBlobUrl ? 'Modelo: Muñeco ESTATUA (Dummy local)' : 'Modelo: placeholder');
+    setText('ar-model-label', stlBlobUrl ? 'Modelo: dummy.stl (local)' : 'Modelo: placeholder');
     return;
   }
 

@@ -56,8 +56,12 @@ async function loadSTLModel() {
   loader.load(stlPath, 
     // SUCCESS
     async (geometry) => {
-      console.log('[STL] Geometría cargada con éxito. Polígonos:', geometry.attributes.position.count / 3);
+      console.log('[STL] Geometría cargada con éxito');
       stlGeometry = geometry;
+      
+      // Rotar -90 grados en X para que esté de pie
+      stlGeometry.rotateX(-Math.PI / 2);
+      
       stlGeometry.center(); 
       
       const material = new THREE.MeshStandardMaterial({ 

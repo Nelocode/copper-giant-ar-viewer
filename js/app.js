@@ -28,11 +28,8 @@ function init() {
   setupEvents();
   generateQR();
   
-  // Cargar el modelo STL local
+  // Cargar el modelo STL local (el comparador se iniciará al terminar la carga)
   loadSTLModel();
-
-  // Estructura por defecto en comparador
-  setTimeout(() => safeRun('default struct', () => selectStruct('eiffel')), 400);
 }
 
 function safeRun(label, fn) {
@@ -48,10 +45,9 @@ function safeRun(label, fn) {
  */
 async function loadSTLModel() {
   const loader = new STLLoader();
-  // Intentar con el nombre original y un fallback por si acaso
-  const stlPath = './dummy.stl';
+  const stlPath = './dummy.stl?v=' + Date.now(); // Cache busting para el archivo
   
-  console.log('[STL] Iniciando carga de:', stlPath);
+  console.log('[STL] Intentando cargar:', stlPath);
   
   const mv = document.getElementById('primary-viewer');
   if (mv) mv.setAttribute('loading-state', 'loading');
@@ -59,9 +55,9 @@ async function loadSTLModel() {
   loader.load(stlPath, 
     // SUCCESS
     async (geometry) => {
-      console.log('[STL] Geometría cargada con éxito');
+      console.log('[STL] Geometría cargada con éxito. Polígonos:', geometry.attributes.position.count / 3);
       stlGeometry = geometry;
-      stlGeometry.center(); // Centrar el modelo
+      stlGeometry.center(); 
       
       const material = new THREE.MeshStandardMaterial({ 
         color: 0xC87533, 
@@ -86,7 +82,11 @@ async function loadSTLModel() {
             setText('ar-model-label', 'Modelo: dummy.stl (local)');
           }
         }
-        console.log('[STL] Conversión a GLB completada');
+        console.log('[STL] Conversión a GLB completada. Iniciando comparador...');
+        
+        // AHORA SÍ: Iniciamos el comparador por defecto una vez que tenemos la geometría
+        safeRun('default struct', () => selectStruct('eiffel'));
+
       }, (err) => {
         console.error('[STL] Error en GLTFExporter:', err);
         if (mv) mv.removeAttribute('loading-state');
@@ -95,17 +95,21 @@ async function loadSTLModel() {
     // PROGRESS
     (xhr) => {
       if (xhr.lengthComputable) {
-        console.log(`[STL] ${(xhr.loaded / xhr.total * 100).toFixed(0)}% cargado`);
+        const percent = (xhr.loaded / xhr.total * 100).toFixed(0);
+        console.log(`[STL] ${percent}% cargado`);
+        setText('ar-model-label', `Cargando STL: ${percent}%`);
       }
     },
     // ERROR
     (err) => {
-      console.error('[STL] Error de carga:', err);
+      console.error('[STL] Error crítico de carga:', err);
       if (mv) {
         mv.removeAttribute('loading-state');
-        mv.src = DEFAULT_MODEL; // Fallback al astronauta si el STL falla
+        mv.src = DEFAULT_MODEL;
       }
-      setText('ar-model-label', 'Error al cargar STL (¿archivo renombrado?)');
+      setText('ar-model-label', 'Error de red al cargar dummy.stl');
+      // Iniciar comparador aunque falle el STL (usará fallback)
+      safeRun('default struct fallback', () => selectStruct('eiffel'));
     }
   );
 }

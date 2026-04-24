@@ -43,48 +43,71 @@ function safeRun(label, fn) {
 /**
  * Carga el archivo .stl local, lo convierte a GLB y lo asigna al visor
  */
+/**
+ * Carga el archivo .stl local, lo convierte a GLB y lo asigna al visor
+ */
 async function loadSTLModel() {
   const loader = new STLLoader();
+  // Intentar con el nombre original y un fallback por si acaso
   const stlPath = './MuñecoESTATUAFULL.stl';
+  
+  console.log('[STL] Iniciando carga de:', stlPath);
   
   const mv = document.getElementById('primary-viewer');
   if (mv) mv.setAttribute('loading-state', 'loading');
 
-  loader.load(stlPath, async (geometry) => {
-    stlGeometry = geometry;
-    stlGeometry.center(); // Centrar el modelo
-    
-    // Crear un mesh temporal para exportar a GLB
-    const material = new THREE.MeshStandardMaterial({ 
-      color: 0xC87533, 
-      roughness: 0.3, 
-      metalness: 0.8 
-    });
-    const mesh = new THREE.Mesh(stlGeometry, material);
-    
-    // Convertir a GLB para que <model-viewer> pueda leerlo
-    const scene = new THREE.Scene();
-    scene.add(mesh);
-    
-    const exporter = new GLTFExporter();
-    exporter.parse(scene, (buffer) => {
-      const blob = new Blob([buffer], { type: 'model/gltf-binary' });
-      if (stlBlobUrl) URL.revokeObjectURL(stlBlobUrl);
-      stlBlobUrl = URL.createObjectURL(blob);
+  loader.load(stlPath, 
+    // SUCCESS
+    async (geometry) => {
+      console.log('[STL] Geometría cargada con éxito');
+      stlGeometry = geometry;
+      stlGeometry.center(); // Centrar el modelo
       
-      if (mv && !arStructId) {
-        mv.src = stlBlobUrl;
-        setText('ar-model-label', 'Modelo: Muñeco ESTATUA (Dummy local)');
+      const material = new THREE.MeshStandardMaterial({ 
+        color: 0xC87533, 
+        roughness: 0.3, 
+        metalness: 0.8 
+      });
+      const mesh = new THREE.Mesh(stlGeometry, material);
+      
+      const scene = new THREE.Scene();
+      scene.add(mesh);
+      
+      const exporter = new GLTFExporter();
+      exporter.parse(scene, (buffer) => {
+        const blob = new Blob([buffer], { type: 'model/gltf-binary' });
+        if (stlBlobUrl) URL.revokeObjectURL(stlBlobUrl);
+        stlBlobUrl = URL.createObjectURL(blob);
+        
+        if (mv) {
+          mv.src = stlBlobUrl;
+          mv.removeAttribute('loading-state');
+          if (!arStructId) {
+            setText('ar-model-label', 'Modelo: Muñeco ESTATUA (Dummy local)');
+          }
+        }
+        console.log('[STL] Conversión a GLB completada');
+      }, (err) => {
+        console.error('[STL] Error en GLTFExporter:', err);
+        if (mv) mv.removeAttribute('loading-state');
+      }, { binary: true });
+    },
+    // PROGRESS
+    (xhr) => {
+      if (xhr.lengthComputable) {
+        console.log(`[STL] ${(xhr.loaded / xhr.total * 100).toFixed(0)}% cargado`);
       }
-    }, { binary: true });
-
-  }, (xhr) => {
-    // Progreso
-    console.log((xhr.loaded / xhr.total * 100) + '% loaded');
-  }, (err) => {
-    console.error('[STL] Error al cargar el modelo local:', err);
-    setText('ar-model-label', 'Error cargando STL local');
-  });
+    },
+    // ERROR
+    (err) => {
+      console.error('[STL] Error de carga:', err);
+      if (mv) {
+        mv.removeAttribute('loading-state');
+        mv.src = DEFAULT_MODEL; // Fallback al astronauta si el STL falla
+      }
+      setText('ar-model-label', 'Error al cargar STL (¿archivo renombrado?)');
+    }
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -239,11 +262,14 @@ async function exportCombinedGLB(structId) {
   if (stlGeometry) {
     const material = new THREE.MeshStandardMaterial({ color: 0xC87533, roughness: 0.3, metalness: 0.8 });
     baseModel = new THREE.Mesh(stlGeometry, material);
-    // Escalar el dummy para que sea comparable (el STL puede ser muy pequeño o muy grande)
-    // Asumimos que queremos que el dummy tenga unos 500m de "presencia" para la comparativa
     baseModel.scale.setScalar(200); 
   } else {
-    baseModel = createOpenPitMine(true);
+    // Si no hay STL, mostramos un plano base para evitar errores
+    baseModel = new THREE.Mesh(
+      new THREE.PlaneGeometry(100, 100),
+      new THREE.MeshStandardMaterial({ color: 0x333333 })
+    );
+    baseModel.rotation.x = -Math.PI / 2;
   }
   
   baseModel.position.set(-700, 0, 0);

@@ -19,6 +19,7 @@ let stlBlobUrl      = null;      // URL del blob GLB generado a partir del STL
 let stlGeometry     = null;      // Geometría cargada del STL para reuso
 
 const DEFAULT_MODEL = './dummy.glb';
+const VIRTUAL_MODEL = './dynamic-ar-model.glb'; // El SW interceptará esto
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 function init() {
@@ -221,7 +222,14 @@ async function selectARStruct(id) {
     if (url) {
       if (combinedBlobUrl) URL.revokeObjectURL(combinedBlobUrl);
       combinedBlobUrl = url;
-      mv.src = url;
+      
+      // Enviamos el blob al Service Worker para que el visor nativo pueda leerlo
+      const blob = await fetch(url).then(r => r.blob());
+      updateServiceWorkerModel(blob);
+
+      // Importante: usamos el path virtual para el visor
+      mv.src = VIRTUAL_MODEL + '?v=' + Date.now();
+      
       const data = STRUCTURES_DATA.find(s => s.id === id);
       setText('ar-model-label', `AR: Mina + ${data?.name} a escala relativa`);
     }
@@ -337,8 +345,13 @@ async function loadCombinedInViewer(structId, viewerId) {
       const prev = mv.dataset.blobUrl;
       if (prev) URL.revokeObjectURL(prev);
       mv.dataset.blobUrl = url;
-      mv.src = url;
-      console.log('[Comparator] Escena cargada');
+      
+      // Actualizamos el SW para que el visor nativo tenga el modelo correcto
+      const blob = await fetch(url).then(r => r.blob());
+      updateServiceWorkerModel(blob);
+
+      mv.src = VIRTUAL_MODEL + '?v=' + Date.now();
+      console.log('[Comparator] Escena cargada vía SW');
     }
   } catch(e) {
     console.error('[viewer] load failed:', e);
@@ -499,6 +512,21 @@ function exportStaticGLB() {
     URL.revokeObjectURL(url);
     alert('¡Listo! Ahora sube el archivo "dummy.glb" a la carpeta raíz de tu proyecto en GitHub.');
   }, { binary: true });
+}
+
+/**
+ * Envía un blob al Service Worker para guardarlo en la caché virtual
+ */
+function updateServiceWorkerModel(blob) {
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({
+      type: 'UPDATE_MODEL',
+      blob: blob
+    });
+    console.log('[SW] Modelo enviado a la caché virtual');
+  } else {
+    console.warn('[SW] No hay controlador activo para recibir el modelo');
+  }
 }
 
 // ─── Utils ────────────────────────────────────────────────────────────────────

@@ -73,10 +73,10 @@
       <div class="view-layer" id="view-3d">
         <model-viewer
           id="primary-viewer"
-          src="https://modelviewer.dev/shared-assets/models/Astronaut.glb"
+          src=""
           alt="Modelo 3D — Copper Giant AR Viewer"
           ar
-          ar-modes="webxr scene-viewer quick-look"
+          ar-modes="scene-viewer quick-look webxr"
           camera-controls
           auto-rotate
           auto-rotate-delay="1000"
@@ -101,7 +101,7 @@
         <div class="hud">
           <div class="hud-tl">
             <span class="hud-tag">COPPER GIANT RESOURCES</span>
-            <span class="hud-sub" id="ar-model-label">Modelo placeholder · Reemplazar con .glb de la mina</span>
+            <span class="hud-sub" id="ar-model-label">Cargando modelo dummy...</span>
           </div>
           <div class="hud-tr"><span class="hud-badge" id="mode-badge">3D INTERACTIVO</span></div>
           <div class="hud-bot"><span class="hud-hint">Arrastra · Zoom · AR en móvil</span></div>
@@ -119,6 +119,8 @@
         <model-viewer
           id="compare-viewer"
           alt="Comparación de escala"
+          ar
+          ar-modes="scene-viewer quick-look webxr"
           camera-controls
           auto-rotate
           auto-rotate-delay="2000"
@@ -145,7 +147,7 @@
           <!-- Etiquetas de comparación -->
           <div class="scale-bar-hud">
             <div class="sblabel mine">
-              <span class="sbt">⛏ Mina</span>
+              <span class="sbt">⛏ Dummy</span>
               <span class="sbv" id="mine-height-label">500 m</span>
             </div>
             <div class="sbvs">VS</div>
@@ -179,7 +181,7 @@
         <div class="panel-sep"></div>
         <div class="model-note">
           <span class="note-icon">📎</span>
-          <span>Placeholder visual — sustituir <code>src</code> del model-viewer con el <code>.glb</code> real de la mina</span>
+          <span>Modelo local: <code>MuñecoESTATUAFULL.stl</code></span>
         </div>
         <div class="panel-sep"></div>
         <button class="action-btn secondary" id="explore-btn">
@@ -201,7 +203,7 @@
           <span class="panel-icon">↕</span>
           <span class="panel-title">Comparar Escala</span>
         </header>
-        <p class="panel-sub">Pit Copper Giant (500 m prof.) vs estructuras icónicas. El visor genera la escena a escala real.</p>
+        <p class="panel-sub">Dummy vs estructuras icónicas. El visor genera la escena a escala real.</p>
         <div class="struct-list" id="structure-selector"></div>
         <div class="panel-sep"></div>
         <div class="fact-box">
@@ -260,10 +262,10 @@
             <span class="check-dot"></span><span class="check-label">iOS / Safari — AR Quick Look</span>
           </div>
           <div class="ar-check-row" id="check-android">
-            <span class="check-dot"></span><span class="check-label">Android / Chrome — Scene Viewer</span>
+            <span class="check-dot"></span><span class="check-label">Android — Native Viewer (No Install)</span>
           </div>
           <div class="ar-check-row" id="check-webxr">
-            <span class="check-dot"></span><span class="check-label">WebXR (Chrome + ARCore)</span>
+            <span class="check-dot"></span><span class="check-label">WebXR (Opcional)</span>
           </div>
         </div>
 

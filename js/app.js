@@ -7,6 +7,7 @@
  */
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { MINE_DATA, STRUCTURES_DATA, createOpenPitMine } from './models.js';
 
 // ─── Estado ───────────────────────────────────────────────────────────────────
@@ -14,6 +15,8 @@ let activeMode      = '3d';
 let activeStructId  = null;      // estructura seleccionada en comparador
 let arStructId      = null;      // estructura seleccionada en AR
 let combinedBlobUrl = null;      // URL del blob GLB combinado para AR
+let stlBlobUrl      = null;      // URL del blob GLB generado a partir del STL
+let stlGeometry     = null;      // Geometría cargada del STL para reuso
 
 const DEFAULT_MODEL = 'https://modelviewer.dev/shared-assets/models/Astronaut.glb';
 
@@ -24,6 +27,10 @@ function init() {
   safeRun('AR check',     detectARCapabilities);
   setupEvents();
   generateQR();
+  
+  // Cargar el modelo STL local
+  loadSTLModel();
+
   // Estructura por defecto en comparador
   setTimeout(() => safeRun('default struct', () => selectStruct('eiffel')), 400);
 }
@@ -31,6 +38,53 @@ function init() {
 function safeRun(label, fn) {
   try { fn(); }
   catch(e) { console.error(`[AR] ${label}:`, e); }
+}
+
+/**
+ * Carga el archivo .stl local, lo convierte a GLB y lo asigna al visor
+ */
+async function loadSTLModel() {
+  const loader = new STLLoader();
+  const stlPath = './MuñecoESTATUAFULL.stl';
+  
+  const mv = document.getElementById('primary-viewer');
+  if (mv) mv.setAttribute('loading-state', 'loading');
+
+  loader.load(stlPath, async (geometry) => {
+    stlGeometry = geometry;
+    stlGeometry.center(); // Centrar el modelo
+    
+    // Crear un mesh temporal para exportar a GLB
+    const material = new THREE.MeshStandardMaterial({ 
+      color: 0xC87533, 
+      roughness: 0.3, 
+      metalness: 0.8 
+    });
+    const mesh = new THREE.Mesh(stlGeometry, material);
+    
+    // Convertir a GLB para que <model-viewer> pueda leerlo
+    const scene = new THREE.Scene();
+    scene.add(mesh);
+    
+    const exporter = new GLTFExporter();
+    exporter.parse(scene, (buffer) => {
+      const blob = new Blob([buffer], { type: 'model/gltf-binary' });
+      if (stlBlobUrl) URL.revokeObjectURL(stlBlobUrl);
+      stlBlobUrl = URL.createObjectURL(blob);
+      
+      if (mv && !arStructId) {
+        mv.src = stlBlobUrl;
+        setText('ar-model-label', 'Modelo: Muñeco ESTATUA (Dummy local)');
+      }
+    }, { binary: true });
+
+  }, (xhr) => {
+    // Progreso
+    console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+  }, (err) => {
+    console.error('[STL] Error al cargar el modelo local:', err);
+    setText('ar-model-label', 'Error cargando STL local');
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -126,10 +180,10 @@ async function selectARStruct(id) {
   if (!mv) return;
 
   if (!id) {
-    // Sin comparación: volver al modelo por defecto
+    // Sin comparación: volver al modelo STL local
     if (combinedBlobUrl) { URL.revokeObjectURL(combinedBlobUrl); combinedBlobUrl = null; }
-    mv.src = DEFAULT_MODEL;
-    setText('ar-model-label', 'Modelo: placeholder (mina real próximamente)');
+    mv.src = stlBlobUrl || DEFAULT_MODEL;
+    setText('ar-model-label', stlBlobUrl ? 'Modelo: Muñeco ESTATUA (Dummy local)' : 'Modelo: placeholder');
     return;
   }
 
@@ -180,10 +234,20 @@ async function exportCombinedGLB(structId) {
   const group = new THREE.Group();
   group.scale.setScalar(SCALE);
 
-  // Mina (lado izquierdo)
-  const mine = createOpenPitMine(true); // simplified=true para menos polígonos
-  mine.position.set(-700, 0, 0);        // -700 m → separación
-  group.add(mine);
+  // Mina / Modelo Base
+  let baseModel;
+  if (stlGeometry) {
+    const material = new THREE.MeshStandardMaterial({ color: 0xC87533, roughness: 0.3, metalness: 0.8 });
+    baseModel = new THREE.Mesh(stlGeometry, material);
+    // Escalar el dummy para que sea comparable (el STL puede ser muy pequeño o muy grande)
+    // Asumimos que queremos que el dummy tenga unos 500m de "presencia" para la comparativa
+    baseModel.scale.setScalar(200); 
+  } else {
+    baseModel = createOpenPitMine(true);
+  }
+  
+  baseModel.position.set(-700, 0, 0);
+  group.add(baseModel);
 
   // Estructura (lado derecho)
   const struct = data.createFn();

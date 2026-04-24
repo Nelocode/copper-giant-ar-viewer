@@ -510,7 +510,9 @@ function exportStaticGLB() {
     link.download = 'dummy.glb';
     link.click();
     URL.revokeObjectURL(url);
-    alert('¡Listo! Ahora sube el archivo "dummy.glb" a la carpeta raíz de tu proyecto en GitHub.');
+    console.log('[Export] GLB generado y descargado');
+  }, (err) => {
+    console.error('[Export] Error:', err);
   }, { binary: true });
 }
 

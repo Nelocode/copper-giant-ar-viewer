@@ -197,6 +197,26 @@
           </svg>
           Activar AR
         </button>
+
+        <div class="panel-sep"></div>
+        <div class="adj-panel" style="padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+          <p class="panel-sub" style="font-weight: bold; color: var(--accent); margin-bottom: 8px;">Calibración de Modelo</p>
+          <div class="adj-row" style="margin-bottom: 8px;">
+            <label style="font-size: 10px; display: block;">Rotación X (Inclinación)</label>
+            <input type="range" id="rot-x" min="-180" max="180" value="0" style="width: 100%;">
+          </div>
+          <div class="adj-row" style="margin-bottom: 8px;">
+            <label style="font-size: 10px; display: block;">Rotación Y (Giro)</label>
+            <input type="range" id="rot-y" min="-180" max="180" value="0" style="width: 100%;">
+          </div>
+          <div class="adj-row" style="margin-bottom: 8px;">
+            <label style="font-size: 10px; display: block;">Rotación Z (Lado)</label>
+            <input type="range" id="rot-z" min="-180" max="180" value="0" style="width: 100%;">
+          </div>
+          <button class="action-btn secondary mt8" id="export-adjusted-btn" style="border-color: var(--accent); width: 100%;">
+            ⬇️ Descargar GLB Calibrado
+          </button>
+        </div>
       </section>
 
       <!-- Panel: Comparar -->
@@ -323,6 +343,6 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
-  <script type="module" src="js/app.js?v=7"></script>
+  <script type="module" src="js/app.js?v=8"></script>
 </body>
 </html>

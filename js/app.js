@@ -547,3 +547,59 @@ function setText(id, val) {
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 init();
+
+/**
+ * Inicializa los manejadores de calibración de modelo (Sliders)
+ */
+function setupCalibration() {
+  const mv = document.getElementById('primary-viewer');
+  const rotX = document.getElementById('rot-x');
+  const rotY = document.getElementById('rot-y');
+  const rotZ = document.getElementById('rot-z');
+  const exportBtn = document.getElementById('export-adjusted-btn');
+
+  const updateRotation = () => {
+    if (mv) {
+      // Rotamos visualmente el modelo en el visor
+      mv.setAttribute('rotation', `${rotX.value}deg ${rotY.value}deg ${rotZ.value}deg`);
+    }
+  };
+
+  rotX?.addEventListener('input', updateRotation);
+  rotY?.addEventListener('input', updateRotation);
+  rotZ?.addEventListener('input', updateRotation);
+
+  exportBtn?.addEventListener('click', () => {
+    if (!stlGeometry) return alert('El modelo STL aún no ha cargado. Espera un segundo.');
+    
+    const material = new THREE.MeshStandardMaterial({ color: 0xC87533, roughness: 0.3, metalness: 0.8 });
+    const mesh = new THREE.Mesh(stlGeometry, material);
+    
+    // Aplicamos las rotaciones "horneadas" al archivo final
+    mesh.rotateX(rotX.value * Math.PI / 180);
+    mesh.rotateY(rotY.value * Math.PI / 180);
+    mesh.rotateZ(rotZ.value * Math.PI / 180);
+    
+    const scene = new THREE.Scene();
+    scene.add(mesh);
+    
+    const exporter = new GLTFExporter();
+    exporter.parse(scene, (buffer) => {
+      const blob = new Blob([buffer], { type: 'model/gltf-binary' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'dummy.glb';
+      link.click();
+      URL.revokeObjectURL(url);
+      alert('¡Modelo calibrado con éxito! Súbelo a GitHub como "dummy.glb" para que el AR se vea perfecto.');
+    }, (err) => console.error(err), { binary: true });
+  });
+}
+
+// Inyectar en el inicio
+const originalInit = init;
+init = function() {
+  originalInit();
+  setupCalibration();
+};

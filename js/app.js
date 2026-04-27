@@ -7,6 +7,7 @@
  */
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { MINE_DATA, STRUCTURES_DATA, createOpenPitMine } from './models.js';
 
@@ -17,6 +18,9 @@ let arStructId      = null;      // estructura seleccionada en AR
 let combinedBlobUrl = null;      // URL del blob GLB combinado para AR
 let stlBlobUrl      = null;      // URL del blob GLB generado a partir del STL
 let stlGeometry     = null;      // Geometría cargada del STL para reuso
+let activeModelObject = null;    // Objeto (Mesh/Group) cargado para calibración
+let mindarThree     = null;      // Instancia de MindAR
+let isCardARRunning  = false;
 
 const DEFAULT_MODEL = './dummy.glb';
 const VIRTUAL_MODEL = './dynamic-ar-model.glb'; // El SW interceptará esto
@@ -28,9 +32,10 @@ function init() {
   safeRun('AR check',     detectARCapabilities);
   setupEvents();
   generateQR();
+  setupCalibration();
   
-  // Cargar el modelo STL local (el comparador se iniciará al terminar la carga)
-  loadSTLModel();
+  // Cargar el modelo para calibración (prioridad GLB > STL)
+  loadCalibrationModel();
 }
 
 function safeRun(label, fn) {
@@ -39,82 +44,59 @@ function safeRun(label, fn) {
 }
 
 /**
- * Carga el archivo .stl local, lo convierte a GLB y lo asigna al visor
+ * Carga el modelo (GLB o STL) para que el sistema pueda manipularlo y exportarlo calibrado
  */
-/**
- * Carga el archivo .stl local, lo convierte a GLB y lo asigna al visor
- */
-async function loadSTLModel() {
-  const loader = new STLLoader();
-  const stlPath = './dummy.stl?v=' + Date.now(); // Cache busting para el archivo
+async function loadCalibrationModel() {
+  const glbPath = DEFAULT_MODEL + '?v=' + Date.now();
+  const stlPath = './dummy.stl?v=' + Date.now();
   
-  console.log('[STL] Intentando cargar:', stlPath);
+  console.log('[Calibration] Intentando cargar modelo base...');
   
   const mv = document.getElementById('primary-viewer');
   if (mv) mv.setAttribute('loading-state', 'loading');
 
-  loader.load(stlPath, 
-    // SUCCESS
-    async (geometry) => {
-      console.log('[STL] Geometría cargada con éxito');
-      stlGeometry = geometry;
-      
-      // Rotar -90 grados en X para que esté de pie
-      stlGeometry.rotateX(-Math.PI / 2);
-      
-      stlGeometry.center(); 
-      
-      const material = new THREE.MeshStandardMaterial({ 
-        color: 0xC87533, 
-        roughness: 0.3, 
-        metalness: 0.8 
-      });
-      const mesh = new THREE.Mesh(stlGeometry, material);
-      
-      const scene = new THREE.Scene();
-      scene.add(mesh);
-      
-      const exporter = new GLTFExporter();
-      exporter.parse(scene, (buffer) => {
-        const blob = new Blob([buffer], { type: 'model/gltf-binary' });
-        if (stlBlobUrl) URL.revokeObjectURL(stlBlobUrl);
-        stlBlobUrl = URL.createObjectURL(blob);
-        
-        if (mv) {
-          mv.src = DEFAULT_MODEL;
-          mv.removeAttribute('loading-state');
-          if (!arStructId) {
-            setText('ar-model-label', 'Modelo: dummy.glb (estático)');
-          }
-        }
-        console.log('[STL] Conversión a GLB completada. Iniciando comparador...');
-        
-        // AHORA SÍ: Iniciamos el comparador por defecto una vez que tenemos la geometría
-        safeRun('default struct', () => selectStruct('eiffel'));
+  const glbLoader = new GLTFLoader();
+  const stlLoader = new STLLoader();
 
-      }, (err) => {
-        console.error('[STL] Error en GLTFExporter:', err);
-        if (mv) mv.removeAttribute('loading-state');
-      }, { binary: true });
+  // 1. Intentar cargar GLB primero (es el estándar para el personaje)
+  glbLoader.load(glbPath, 
+    (gltf) => {
+      console.log('[Calibration] GLB cargado para ajustes');
+      activeModelObject = gltf.scene;
+      
+      // En GLB no aplicamos rotaciones automáticas, dejamos que el usuario lo haga
+      if (mv) mv.removeAttribute('loading-state');
+      
+      // Iniciar comparador
+      safeRun('default struct', () => selectStruct('eiffel'));
     },
-    // PROGRESS
-    (xhr) => {
-      if (xhr.lengthComputable) {
-        const percent = (xhr.loaded / xhr.total * 100).toFixed(0);
-        console.log(`[STL] ${percent}% cargado`);
-        setText('ar-model-label', `Cargando STL: ${percent}%`);
-      }
-    },
-    // ERROR
+    undefined,
     (err) => {
-      console.error('[STL] Error crítico de carga:', err);
-      if (mv) {
-        mv.removeAttribute('loading-state');
-        mv.src = DEFAULT_MODEL;
-      }
-      setText('ar-model-label', 'Error de red al cargar dummy.stl');
-      // Iniciar comparador aunque falle el STL (usará fallback)
-      safeRun('default struct fallback', () => selectStruct('eiffel'));
+      console.warn('[Calibration] No se pudo cargar GLB, intentando STL...', err);
+      
+      // 2. Fallback a STL si falla el GLB
+      stlLoader.load(stlPath, 
+        (geometry) => {
+          console.log('[Calibration] STL cargado para ajustes');
+          stlGeometry = geometry;
+          
+          // NOTA: No rotamos aquí automáticamante para evitar el problema de "tumbado"
+          // Dejamos que el usuario use los sliders
+          
+          const material = new THREE.MeshStandardMaterial({ 
+            color: 0xC87533, roughness: 0.3, metalness: 0.8 
+          });
+          activeModelObject = new THREE.Mesh(stlGeometry, material);
+          
+          if (mv) mv.removeAttribute('loading-state');
+          safeRun('default struct', () => selectStruct('eiffel'));
+        },
+        undefined,
+        (err) => {
+          console.error('[Calibration] Error crítico: No hay modelo base', err);
+          if (mv) mv.removeAttribute('loading-state');
+        }
+      );
     }
   );
 }
@@ -394,7 +376,7 @@ function setMode(mode) {
   document.querySelectorAll('.tab[data-mode]').forEach(t =>
     t.classList.toggle('active', t.dataset.mode === mode)
   );
-  ['3d','compare','ar'].forEach(m =>
+  ['3d','compare','ar','card'].forEach(m =>
     document.getElementById(`panel-${m}`)?.classList.toggle('hidden', m !== mode)
   );
 
@@ -405,9 +387,19 @@ function setMode(mode) {
   document.getElementById('view-compare')?.classList.toggle('hidden',
     mode !== 'compare'
   );
+  document.getElementById('view-card')?.classList.toggle('hidden',
+    mode !== 'card'
+  );
+
+  // Gestión de MindAR (encender/apagar cámara)
+  if (mode === 'card') {
+    initCardAR();
+  } else if (isCardARRunning) {
+    stopCardAR();
+  }
 
   // Badge
-  const badges = { '3d':'3D INTERACTIVO', compare:'COMPARANDO ESCALA', ar:'AR VIEWER' };
+  const badges = { '3d':'3D INTERACTIVO', compare:'COMPARANDO ESCALA', ar:'AR VIEWER', card:'TARJETA AR' };
   setText('mode-badge', badges[mode] || '');
 
   // Compare: cargar la escena en el visor embebido si no está
@@ -488,26 +480,24 @@ function setupEvents() {
   document.getElementById('explore-btn')?.addEventListener('click', () => setMode('compare'));
   document.getElementById('qr-btn')?.addEventListener('click',      showQRModal);
   document.getElementById('show-qr-btn')?.addEventListener('click', showQRModal);
+  document.getElementById('restart-tracking-btn')?.addEventListener('click', () => {
+    stopCardAR();
+    initCardAR();
+  });
   document.getElementById('export-glb-btn')?.addEventListener('click', exportStaticGLB);
 }
 
 /**
- * Exporta el modelo STL actual a un archivo GLB para que el usuario lo suba al repo
+ * Exporta el modelo actual a un archivo GLB para que el usuario lo suba al repo
  */
 function exportStaticGLB() {
-  if (!stlGeometry) {
-    alert('El modelo STL aún no ha cargado. Espera un segundo.');
+  if (!activeModelObject) {
+    alert('El modelo aún no ha cargado. Espera un segundo.');
     return;
   }
 
-  const material = new THREE.MeshStandardMaterial({ color: 0xC87533, roughness: 0.3, metalness: 0.8 });
-  const mesh = new THREE.Mesh(stlGeometry, material);
-  
-  // Rotación crítica: para que el GLB salga "de pie" en los visores nativos (AR)
-  mesh.rotateX(-Math.PI / 2);
-  
   const scene = new THREE.Scene();
-  scene.add(mesh);
+  scene.add(activeModelObject.clone());
   
   const exporter = new GLTFExporter();
   exporter.parse(scene, (buffer) => {
@@ -560,8 +550,7 @@ function setupCalibration() {
 
   const updateRotation = () => {
     if (mv) {
-      // Rotamos visualmente el modelo en el visor
-      mv.setAttribute('rotation', `${rotX.value}deg ${rotY.value}deg ${rotZ.value}deg`);
+      mv.setAttribute('orientation', `${rotX.value}deg ${rotY.value}deg ${rotZ.value}deg`);
     }
   };
 
@@ -570,18 +559,21 @@ function setupCalibration() {
   rotZ?.addEventListener('input', updateRotation);
 
   exportBtn?.addEventListener('click', () => {
-    if (!stlGeometry) return alert('El modelo STL aún no ha cargado. Espera un segundo.');
+    if (!activeModelObject) return alert('El modelo aún no ha cargado. Espera un segundo.');
     
-    const material = new THREE.MeshStandardMaterial({ color: 0xC87533, roughness: 0.3, metalness: 0.8 });
-    const mesh = new THREE.Mesh(stlGeometry, material);
+    // Clonamos para no afectar la visualización actual mientras exportamos
+    const modelToExport = activeModelObject.clone();
     
-    // Aplicamos las rotaciones "horneadas" al archivo final
-    mesh.rotateX(rotX.value * Math.PI / 180);
-    mesh.rotateY(rotY.value * Math.PI / 180);
-    mesh.rotateZ(rotZ.value * Math.PI / 180);
+    // Aplicamos las rotaciones "horneadas" al objeto final
+    // Importante: usamos el orden Euler para asegurar predictibilidad
+    modelToExport.rotation.set(
+      rotX.value * Math.PI / 180,
+      rotY.value * Math.PI / 180,
+      rotZ.value * Math.PI / 180
+    );
     
     const scene = new THREE.Scene();
-    scene.add(mesh);
+    scene.add(modelToExport);
     
     const exporter = new GLTFExporter();
     exporter.parse(scene, (buffer) => {
@@ -592,14 +584,103 @@ function setupCalibration() {
       link.download = 'dummy.glb';
       link.click();
       URL.revokeObjectURL(url);
-      alert('¡Modelo calibrado con éxito! Súbelo a GitHub como "dummy.glb" para que el AR se vea perfecto.');
+      alert('¡Modelo calibrado con éxito! Reemplaza el archivo "dummy.glb" en tu servidor con este nuevo archivo para que el personaje salga siempre de pie.');
     }, (err) => console.error(err), { binary: true });
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+//  MIND AR: Modo Tarjeta (Image Tracking)
+// ═══════════════════════════════════════════════════════════════════════════════
+async function initCardAR() {
+  if (isCardARRunning) return;
+  
+  console.log('[MindAR] Iniciando motor...');
+  const container = document.getElementById('mindar-container');
+  if (!container) return;
+
+  // NOTA: Para producción, este archivo .mind debe generarse con el QR real
+  // Usamos un placeholder por ahora.
+  const targetPath = './targets/qr-target.mind';
+
+  try {
+    // Inicializar MindAR con Three.js
+    mindarThree = new window.MINDAR.IMAGE.MindARThree({
+      container: container,
+      imageTargetSrc: targetPath,
+      maxTrack: 1,
+      uiScanning: "#view-card .card-overlay"
+    });
+
+    const { renderer, scene, camera } = mindarThree;
+
+    // Crear el ancla para el primer target (index 0)
+    const anchor = mindarThree.addAnchor(0);
+
+    // Añadir el modelo actual al ancla
+    if (activeModelObject) {
+      const modelClone = activeModelObject.clone();
+      
+      // Ajustar escala para que quepa en la tarjeta (~5cm - 10cm en escena virtual)
+      // Si el modelo real mide 1000m, y queremos que mida 10cm (0.1m) -> escala = 0.0001
+      modelClone.scale.setScalar(0.0001); 
+      
+      anchor.group.add(modelClone);
+    } else {
+      // Fallback: cubo de prueba
+      const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+      const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+      const cube = new THREE.Mesh(geometry, material);
+      anchor.group.add(cube);
+    }
+
+    // Luces para el AR
+    const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+    scene.add(light);
+
+    await mindarThree.start();
+    isCardARRunning = true;
+    console.log('[MindAR] Cámara activa');
+
+    // Eventos de detección
+    anchor.onTargetFound = () => {
+      console.log('[MindAR] Tarjeta detectada');
+      const status = document.getElementById('card-status');
+      if (status) status.classList.add('detected');
+      setText('card-status', '● Tarjeta Detectada');
+    };
+
+    anchor.onTargetLost = () => {
+      console.log('[MindAR] Tarjeta perdida');
+      const status = document.getElementById('card-status');
+      if (status) status.classList.remove('detected');
+      setText('card-status', 'Buscando tarjeta...');
+    };
+
+    renderer.setAnimationLoop(() => {
+      renderer.render(scene, camera);
+    });
+
+  } catch (err) {
+    console.error('[MindAR] Error al iniciar:', err);
+    alert('No se pudo acceder a la cámara o cargar el target de AR.');
+  }
+}
+
+function stopCardAR() {
+  if (!isCardARRunning) return;
+  console.log('[MindAR] Deteniendo motor...');
+  
+  if (mindarThree) {
+    mindarThree.stop();
+    mindarThree.renderer.setAnimationLoop(null);
+  }
+  
+  const container = document.getElementById('mindar-container');
+  if (container) container.innerHTML = '';
+  
+  isCardARRunning = false;
+}
+
 // Inyectar en el inicio
-const originalInit = init;
-init = function() {
-  originalInit();
-  setupCalibration();
-};
+

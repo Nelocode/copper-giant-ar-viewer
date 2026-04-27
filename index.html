@@ -21,6 +21,8 @@
     }
   }
   </script>
+  <!-- MindAR for Image Tracking -->
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"></script>
 </head>
 <body>
 
@@ -47,6 +49,7 @@
       <div class="mode-tabs">
         <button class="tab active" data-mode="3d">Vista 3D</button>
         <button class="tab"        data-mode="compare">Comparar</button>
+        <button class="tab"        data-mode="card">Tarjeta 💳</button>
         <button class="tab"        data-mode="ar">AR 📡</button>
       </div>
     </div>
@@ -158,6 +161,15 @@
               <span class="sbv" id="struct-height-label">—</span>
             </div>
           </div>
+        </div>
+      </div>
+      
+      <!-- ── MODO CARD: MindAR Image Tracking ── -->
+      <div class="view-layer hidden" id="view-card">
+        <div id="mindar-container" style="width:100%; height:100%"></div>
+        <div class="card-overlay">
+          <div class="scan-frame"></div>
+          <p>Apunta a tu tarjeta de presentación</p>
         </div>
       </div>
 
@@ -300,6 +312,30 @@
           Compartir QR
         </button>
         <div class="panel-note mt8">En <strong>PC:</strong> escanea el QR con el móvil para ver en AR.</div>
+      </section>
+
+      <!-- Panel: Tarjeta -->
+      <section class="panel hidden" id="panel-card">
+        <header class="panel-hdr">
+          <span class="panel-icon">💳</span>
+          <span class="panel-title">Tarjeta de Presentación</span>
+        </header>
+        <p class="panel-sub">Escanea tu tarjeta física para ver la mina aparecer en 3D sobre ella.</p>
+        
+        <div class="panel-sep"></div>
+        
+        <div class="card-status-box">
+          <div class="status-indicator" id="card-status">
+            <span class="status-dot"></span>
+            <span class="status-text">Buscando tarjeta...</span>
+          </div>
+        </div>
+
+        <div class="panel-sep"></div>
+        <button class="action-btn primary" id="restart-tracking-btn">
+          Reiniciar Cámara
+        </button>
+        <div class="panel-note mt8">Asegúrate de tener buena iluminación.</div>
       </section>
 
     </aside>

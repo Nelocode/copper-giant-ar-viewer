@@ -439,9 +439,15 @@ body{
 @media(max-width:768px){
   :root{--sw:0}
   .sidebar{display:none}
-  .header-center{display:none}
+  .hub-header{height:auto; flex-wrap:wrap; padding:10px; gap:10px}
+  .header-center{order:3; width:100%; display:flex; justify-content:center}
+  .header-right{order:2}
+  .header-left{order:1}
+  .mode-tabs{width:100%; justify-content:center}
+  .tab{padding:6px 10px; font-size:.55rem}
+  
   body{overflow:auto}
   .viewer-shell{flex-direction:column;height:auto}
-  .canvas-wrap{height:calc(100dvh - var(--hh) - var(--fh))}
+  .canvas-wrap{height:calc(100dvh - 120px)}
   .mv-ar-btn{bottom:16px;padding:11px 22px;font-size:.7rem}
 }

@@ -47,8 +47,9 @@ function safeRun(label, fn) {
  * Carga el modelo (GLB o STL) para que el sistema pueda manipularlo y exportarlo calibrado
  */
 async function loadCalibrationModel() {
-  const glbPath = DEFAULT_MODEL + '?v=' + Date.now();
-  const stlPath = './dummy.stl?v=' + Date.now();
+  const version = 'v=' + Date.now();
+  const glbPath = DEFAULT_MODEL + '?' + version;
+  const stlPath = './dummy.stl?' + version;
   
   console.log('[Calibration] Intentando cargar modelo base...');
   
@@ -605,7 +606,14 @@ async function initCardAR() {
 
   try {
     // Inicializar MindAR con Three.js
-    mindarThree = new window.MINDAR.IMAGE.MindARThree({
+    // Intentar diferentes rutas globales por compatibilidad de versiones
+    const MindARConstructor = window.MINDAR?.IMAGE?.MindARThree || window.MindARThree;
+    
+    if (!MindARConstructor) {
+      throw new Error('La librería MindAR no se ha cargado correctamente.');
+    }
+
+    mindarThree = new MindARConstructor({
       container: container,
       imageTargetSrc: targetPath,
       maxTrack: 1,

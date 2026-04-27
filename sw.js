@@ -1,4 +1,4 @@
-const VERSION = 'v1';
+const VERSION = 'v10';
 const MODEL_PATH = '/dynamic-ar-model.glb';
 
 // Forzar activación inmediata

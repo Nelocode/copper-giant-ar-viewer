@@ -491,6 +491,7 @@ function setupEvents() {
     stopCardAR();
     initCardAR();
   });
+  document.getElementById('force-clear-cache')?.addEventListener('click', forceClearCache);
   document.getElementById('export-glb-btn')?.addEventListener('click', exportStaticGLB);
 }
 
@@ -718,5 +719,25 @@ function stopCardAR() {
   isCardARRunning = false;
 }
 
-// Inyectar en el inicio
-
+/**
+ * Limpieza profunda de caché y service workers para forzar actualización
+ */
+async function forceClearCache() {
+  if (!confirm('Se borrará la memoria temporal para actualizar a la última versión. ¿Continuar?')) return;
+  
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (let r of regs) await r.unregister();
+    }
+    if ('caches' in window) {
+      const names = await caches.keys();
+      for (let n of names) await caches.delete(n);
+    }
+    // Recarga con timestamp para saltar proxies
+    window.location.href = window.location.pathname + '?update=' + Date.now();
+  } catch (err) {
+    console.error('Error al limpiar caché:', err);
+    window.location.reload();
+  }
+}

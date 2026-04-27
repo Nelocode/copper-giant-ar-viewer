@@ -19,6 +19,7 @@ let combinedBlobUrl = null;      // URL del blob GLB combinado para AR
 let stlBlobUrl      = null;      // URL del blob GLB generado a partir del STL
 let stlGeometry     = null;      // Geometría cargada del STL para reuso
 let activeModelObject = null;    // Objeto (Mesh/Group) cargado para calibración
+let arModelObject     = null;    // Referencia al modelo dentro de MindAR
 let mindarThree     = null;      // Instancia de MindAR
 let isCardARRunning  = false;
 
@@ -377,9 +378,14 @@ function setMode(mode) {
   document.querySelectorAll('.tab[data-mode]').forEach(t =>
     t.classList.toggle('active', t.dataset.mode === mode)
   );
+  
   ['3d','compare','ar','card'].forEach(m =>
     document.getElementById(`panel-${m}`)?.classList.toggle('hidden', m !== mode)
   );
+
+  // Mostrar el panel de calibración en 3D y en Card
+  const showCalib = (mode === '3d' || mode === 'card');
+  document.getElementById('panel-calibration')?.classList.toggle('hidden', !showCalib);
 
   // Views
   document.getElementById('view-3d')?.classList.toggle('hidden',
@@ -550,8 +556,17 @@ function setupCalibration() {
   const exportBtn = document.getElementById('export-adjusted-btn');
 
   const updateRotation = () => {
+    const rx = rotX.value * Math.PI / 180;
+    const ry = rotY.value * Math.PI / 180;
+    const rz = rotZ.value * Math.PI / 180;
+
     if (mv) {
       mv.setAttribute('orientation', `${rotX.value}deg ${rotY.value}deg ${rotZ.value}deg`);
+    }
+    
+    // Si estamos en modo AR Tarjeta, actualizamos el modelo en vivo
+    if (arModelObject) {
+      arModelObject.rotation.set(rx, ry, rz);
     }
   };
 
@@ -627,13 +642,24 @@ async function initCardAR() {
 
     // Añadir el modelo actual al ancla
     if (activeModelObject) {
-      const modelClone = activeModelObject.clone();
+      arModelObject = activeModelObject.clone();
       
       // Ajustar escala para que quepa en la tarjeta (~5cm - 10cm en escena virtual)
-      // Si el modelo real mide 1000m, y queremos que mida 10cm (0.1m) -> escala = 0.0001
-      modelClone.scale.setScalar(0.0001); 
+      arModelObject.scale.setScalar(0.0001); 
       
-      anchor.group.add(modelClone);
+      // Aplicar rotación actual de los sliders
+      const rX = document.getElementById('rot-x');
+      const rY = document.getElementById('rot-y');
+      const rZ = document.getElementById('rot-z');
+      if (rX && rY && rZ) {
+        arModelObject.rotation.set(
+          rX.value * Math.PI / 180,
+          rY.value * Math.PI / 180,
+          rZ.value * Math.PI / 180
+        );
+      }
+      
+      anchor.group.add(arModelObject);
     } else {
       // Fallback: cubo de prueba
       const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
@@ -678,6 +704,8 @@ async function initCardAR() {
 function stopCardAR() {
   if (!isCardARRunning) return;
   console.log('[MindAR] Deteniendo motor...');
+  
+  arModelObject = null; // Limpiar referencia
   
   if (mindarThree) {
     mindarThree.stop();
